@@ -218,74 +218,75 @@
     }
 
     async function searchTracks() {
-  const query = document.getElementById('query').value.trim();
-  const person = document.getElementById('personFilter').value;
-  const party = document.getElementById('partyFilter').value;
-  const sortBy = document.getElementById('sortBy').value;
-  const status = document.getElementById('status');
-  const table = document.getElementById('results');
-  const tbody = table.querySelector('tbody');
+      const query = document.getElementById('query').value.trim();
+      const person = document.getElementById('personFilter').value;
+      const party = document.getElementById('partyFilter').value;
+      const sortBy = document.getElementById('sortBy').value;
+      const status = document.getElementById('status');
+      const table = document.getElementById('results');
+      const tbody = table.querySelector('tbody');
 
-  tbody.innerHTML = '';
-  table.style.display = 'none';
-  status.textContent = '🔍 Searching...';
-  status.style.color = '#fff';
+      tbody.innerHTML = '';
+      table.style.display = 'none';
+      status.textContent = '🔍 Searching...';
+      status.style.color = '#fff';
 
-  try {
-    let q = supabase.from('tracks_v2').select('*');
-    const [col, dir] = sortBy.split('.');
-    q = q.order(col, { ascending: dir === 'asc' });
+      try {
+        let results = [];
+        const keywords = query ? query.split(/\s+/).filter(Boolean) : [''];
 
-    // Smart multi-word search
-    if (query) {
-      const keywords = query.split(/\s+/).filter(Boolean);
-      let searchClauses = [];
+        for (const word of keywords) {
+          let q = supabase.from('tracks_v2').select('*');
+          const [col, dir] = sortBy.split('.');
+          q = q.order(col, { ascending: dir === 'asc' });
 
-      for (const word of keywords) {
-        const wordClause = `(artist_norm.ilike.%${word}%,title_norm.ilike.%${word}%,file_name.ilike.%${word}%)`;
-        searchClauses.push(wordClause);
+          if (word) {
+            q = q.or(`artist_norm.ilike.%${word}%,title_norm.ilike.%${word}%,file_name.ilike.%${word}%`);
+          }
+          if (person) q = q.eq('person_raw', person);
+          if (party) q = q.eq('party_name', party);
+          q = q.limit(300);
+
+          const { data, error } = await q;
+          if (error) throw error;
+          if (data) results = results.concat(data);
+        }
+
+        // Deduplicate by sha1
+        const seen = new Set();
+        const unique = results.filter(r => {
+          if (seen.has(r.sha1)) return false;
+          seen.add(r.sha1);
+          return true;
+        });
+
+        if (!unique.length) {
+          status.textContent = 'No results found.';
+          return;
+        }
+
+        lastResults = unique;
+        table.style.display = 'table';
+        status.textContent = `🎶 Found ${unique.length} results.`;
+        status.style.color = '#0f0';
+
+        for (const row of unique) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${row.title_norm || row.file_name}</td>
+            <td>${row.artist_norm || 'Unknown'}</td>
+            <td>${row.party_name || '-'}</td>
+            <td>${row.person_raw || '-'}</td>
+          `;
+          tr.addEventListener('click', () => showDetails(row));
+          tbody.appendChild(tr);
+        }
+      } catch (err) {
+        console.error('Search error:', err);
+        status.textContent = 'Error performing search.';
+        status.style.color = '#f66';
       }
-
-      // chain with AND so all words must match somewhere
-      q = q.or(searchClauses.join('&'));
     }
-
-    if (person) q = q.eq('person_raw', person);
-    if (party) q = q.eq('party_name', party);
-
-    q = q.limit(300);
-
-    const { data, error } = await q;
-    if (error) throw error;
-
-    if (!data || data.length === 0) {
-      status.textContent = 'No results found.';
-      return;
-    }
-
-    lastResults = data;
-    table.style.display = 'table';
-    status.textContent = `🎶 Found ${data.length} results.`;
-    status.style.color = '#0f0';
-
-    for (const row of data) {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${row.title_norm || row.file_name}</td>
-        <td>${row.artist_norm || 'Unknown'}</td>
-        <td>${row.party_name || '-'}</td>
-        <td>${row.person_raw || '-'}</td>
-      `;
-      tr.addEventListener('click', () => showDetails(row));
-      tbody.appendChild(tr);
-    }
-  } catch (err) {
-    console.error('Search error:', err);
-    status.textContent = 'Error performing search.';
-    status.style.color = '#f66';
-  }
-}
-
 
     function showDetails(row) {
       const modal = document.getElementById('trackModal');
@@ -345,5 +346,3 @@
   </script>
 </body>
 </html>
-
-
