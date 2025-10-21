@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The MasterDank Collections — Session Explorer</title>
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  <style>
+    body {
+      font-family: 'Orbitron', sans-serif;
+      background: linear-gradient(120deg, #0a0f2c, #001f3f, #170f2e);
+      background-size: 400% 400%;
+      animation: bgShift 40s ease infinite;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    @keyframes bgShift {
+      0% {background-position: 0% 50%;}
+      50% {background-position: 100% 50%;}
+      100% {background-position: 0% 50%;}
+    }
+    header {
+      font-size: 1.6rem;
+      padding: 1.5rem;
+      background: rgba(0,0,0,0.3);
+      border-bottom: 2px solid #0ff;
+      text-shadow: 0 0 8px #0ff;
+    }
+    .chart-container {
+      width: 90%;
+      max-width: 1000px;
+      margin: 2rem auto;
+      padding: 1rem;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 12px;
+      box-shadow: 0 0 30px rgba(0,255,255,0.2);
+    }
+    h2 {
+      color: #0ff;
+      text-shadow: 0 0 10px #0ff;
+      margin-bottom: 1rem;
+    }
+    a {
+      color: #0ff;
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+    a:hover { color: #fff; }
+    footer {
+      font-size: 0.8rem;
+      color: #aaa;
+      margin-top: 2rem;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    🌈 The MasterDank Collections — <span style="color:#00ffaa;">Session Explorer</span>
+    <div style="font-size:0.8rem; margin-top:6px;">
+      <a href="home.html">← Back to Search</a>
+    </div>
+  </header>
+
+  <div class="chart-container">
+    <h2>🎤 Top 10 Artists</h2>
+    <div id="topArtists"></div>
+  </div>
+
+  <div class="chart-container">
+    <h2>🎧 Top 10 Sessions</h2>
+    <div id="topSessions"></div>
+  </div>
+
+  <div class="chart-container">
+    <h2>🧍‍♂️ Top 10 Bringers</h2>
+    <div id="topBringers"></div>
+  </div>
+
+  <div class="chart-container">
+    <h2>⏳ Tracks Added Over Time</h2>
+    <div id="tracksOverTime"></div>
+  </div>
+
+  <footer>✨ Powered by Supabase + Plotly — handcrafted by The MasterDank Crew ✨</footer>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+    const supabaseUrl = 'https://ilvfgrahrejymvnyrrxa.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlsdmZncmFocmVqeW12bnlycnhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA1ODY4MzgsImV4cCI6MjA3NjE2MjgzOH0.BF9-ohNBCXhJUBvC0t6rtI8V9LcmL7PbfSKt_M4Mu0s';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    async function loadCharts() {
+      try {
+        // --- Top Artists ---
+        const { data: artists } = await supabase
+          .from('tracks_v2')
+          .select('artist_norm')
+          .not('artist_norm', 'is', null);
+        const artistCounts = {};
+        for (const a of artists) {
+          const k = a.artist_norm.trim().toLowerCase();
+          if (!k) continue;
+          artistCounts[k] = (artistCounts[k] || 0) + 1;
+        }
+        const sortedArtists = Object.entries(artistCounts).sort((a,b) => b[1]-a[1]).slice(0,10);
+        Plotly.newPlot('topArtists', [{
+          x: sortedArtists.map(a => a[0]),
+          y: sortedArtists.map(a => a[1]),
+          type: 'bar',
+          marker: {color: 'rgba(0,255,255,0.8)'}
+        }], {paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)', font:{color:'#fff'}});
+
+        // --- Top Sessions ---
+        const { data: sessions } = await supabase
+          .from('tracks_v2')
+          .select('party_name')
+          .not('party_name', 'is', null);
+        const sessionCounts = {};
+        for (const s of sessions) {
+          const k = s.party_name.trim().toLowerCase();
+          if (!k) continue;
+          sessionCounts[k] = (sessionCounts[k] || 0) + 1;
+        }
+        const sortedSessions = Object.entries(sessionCounts).sort((a,b) => b[1]-a[1]).slice(0,10);
+        Plotly.newPlot('topSessions', [{
+          x: sortedSessions.map(a => a[0]),
+          y: sortedSessions.map(a => a[1]),
+          type: 'bar',
+          marker: {color: 'rgba(0,255,128,0.8)'}
+        }], {paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)', font:{color:'#fff'}});
+
+        // --- Top Bringers ---
+        const { data: bringers } = await supabase
+          .from('tracks_v2')
+          .select('person_raw')
+          .not('person_raw', 'is', null);
+        const bringerCounts = {};
+        for (const b of bringers) {
+          const k = b.person_raw.trim().toLowerCase();
+          if (!k) continue;
+          bringerCounts[k] = (bringerCounts[k] || 0) + 1;
+        }
+        const sortedBringers = Object.entries(bringerCounts).sort((a,b) => b[1]-a[1]).slice(0,10);
+        Plotly.newPlot('topBringers', [{
+          x: sortedBringers.map(a => a[0]),
+          y: sortedBringers.map(a => a[1]),
+          type: 'bar',
+          marker: {color: 'rgba(255,0,255,0.8)'}
+        }], {paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)', font:{color:'#fff'}});
+
+        // --- Tracks Over Time ---
+        const { data: tracks } = await supabase
+          .from('tracks_v2')
+          .select('added_at')
+          .not('added_at', 'is', null);
+        const timeCounts = {};
+        for (const t of tracks) {
+          const month = new Date(t.added_at).toISOString().slice(0,7); // YYYY-MM
+          timeCounts[month] = (timeCounts[month] || 0) + 1;
+        }
+        const sortedTime = Object.entries(timeCounts).sort((a,b) => a[0].localeCompare(b[0]));
+        Plotly.newPlot('tracksOverTime', [{
+          x: sortedTime.map(a => a[0]),
+          y: sortedTime.map(a => a[1]),
+          type: 'scatter',
+          mode: 'lines+markers',
+          line: {color: '#00ffff'}
+        }], {paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)', font:{color:'#fff'}});
+
+      } catch (err) {
+        console.error('Chart error:', err);
+      }
+    }
+
+    loadCharts();
+  </script>
+</body>
+</html>
