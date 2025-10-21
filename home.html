@@ -1,139 +1,184 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>The MasterDank Collections — Search</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The MasterDank Collections — Track Search</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body {
+      background: radial-gradient(circle at 10% 10%, #2b005f, #000);
+      color: #e0e0ff;
+      font-family: 'Trebuchet MS', sans-serif;
       margin: 0;
-      font-family: 'Segoe UI', sans-serif;
-      background: radial-gradient(circle at top left, #2a0845, #6441A5);
-      color: #eee;
-      height: 100vh;
-      overflow: hidden;
+      padding: 0;
+      overflow-x: hidden;
     }
     header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 15px;
-      font-size: 1.1rem;
-      background: rgba(10,10,20,0.5);
-      box-shadow: 0 2px 10px rgba(0,0,0,0.4);
-    }
-    input, button {
-      background: #11142b;
-      border: 1px solid #444;
-      color: #fff;
-      border-radius: 6px;
-      padding: 6px 10px;
-      font-size: 1rem;
-    }
-    button:hover { background: #22274b; cursor: pointer; }
-    #results {
+      background: rgba(0, 0, 0, 0.4);
       padding: 20px;
-      height: calc(100vh - 70px);
-      overflow-y: auto;
-      background: rgba(5,5,15,0.6);
+      text-align: center;
+      border-bottom: 2px solid #6f00ff;
+      color: #b6aaff;
+      font-size: 1.5em;
+    }
+    header span {
+      color: #76ffde;
+    }
+    .search-bar {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      gap: 10px;
+    }
+    input {
+      width: 300px;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      font-size: 1em;
+      outline: none;
+      background: #1a002b;
+      color: #fff;
+    }
+    button {
+      background: #6f00ff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1em;
+    }
+    button:hover {
+      background: #9b00ff;
     }
     table {
-      width: 100%;
+      width: 90%;
+      margin: 20px auto;
       border-collapse: collapse;
-      font-size: 0.9rem;
+      border-radius: 10px;
+      overflow: hidden;
+      background: rgba(20, 0, 40, 0.7);
     }
     th, td {
-      padding: 6px 10px;
-      border-bottom: 1px solid #333;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      text-align: left;
+      padding: 12px;
     }
     th {
-      text-align: left;
-      color: #9ff;
+      background: rgba(120, 0, 255, 0.3);
+      color: #76ffde;
     }
-    tr:hover { background: rgba(255,255,255,0.05); }
+    tr:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    #status {
+      text-align: center;
+      color: #ff80df;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
+
   <header>
-    <div><b style="color:#a8b8ff;">The MasterDank Collections</b> — <span style="color:#99f2c8;">Track Search</span></div>
-    <input id="searchInput" type="text" placeholder="Search artist or track..." style="flex:1;">
-    <button id="searchBtn">Search</button>
-    <span id="status"></span>
+    🔮 The MasterDank Collections — <span>Track Search</span>
   </header>
-  <div id="results"></div>
+
+  <div class="search-bar">
+    <input id="query" placeholder="Search for artist or track..." />
+    <button onclick="searchTracks()">Search</button>
+  </div>
+
+  <div id="status">Ready.</div>
+
+  <table id="results" style="display:none;">
+    <thead>
+      <tr>
+        <th>Track</th>
+        <th>Artist</th>
+        <th>Sessions</th>
+        <th>Brought By</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
   <script>
-  const SUPABASE_URL = "https://ilvfgrahrejymvnyrrxa.supabase.co/rest/v1/";
-  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlsdmZncmFocmVqeW12bnlycnhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA1ODY4MzgsImV4cCI6MjA3NjE2MjgzOH0.BF9-ohNBCXhJUBvC0t6rtI8V9LcmL7PbfSKt_M4Mu0s";
+    const supabaseUrl = 'https://ilvfgrahrejymvnyrrxa.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlsdmZncmFocmVqeW12bnlycnhhIiwicm9zZSI6ImFub24iLCJpYXQiOjE3NjA1ODY4MzgsImV4cCI6MjA3NjE2MjgzOH0.BF9-ohNBCXhJUBvC0t6rtI8V9LcmL7PbfSKt_M4Mu0s';
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-  async function searchTracks(query) {
-    if (!query) return;
-    document.getElementById('status').textContent = 'Searching...';
-    document.getElementById('results').innerHTML = '';
+    async function searchTracks() {
+      const query = document.getElementById('query').value.trim();
+      const status = document.getElementById('status');
+      const table = document.getElementById('results');
+      const tbody = table.querySelector('tbody');
 
-    const filter = encodeURIComponent(`or(track_name.ilike.%25${query}%25,artist_name.ilike.%25${query}%25)`);
-    const url = `${SUPABASE_URL}/rest/v1/view_searchable_tracks?${filter}&select=*`;
-
-    try {
-      const res = await fetch(url, {
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`
-        }
-      });
-      const data = await res.json();
-      if (!Array.isArray(data)) throw new Error(JSON.stringify(data));
-
-      document.getElementById('status').textContent = `${data.length} result(s)`;
-      displayResults(data);
-    } catch (err) {
-      console.error('Search error:', err);
-      document.getElementById('status').textContent = 'Error';
-    }
-  }
-
-  function displayResults(data) {
-    if (data.length === 0) {
-      document.getElementById('results').innerHTML = '<p>No results found.</p>';
-      return;
-    }
-
-    // Group by (track, artist)
-    const grouped = {};
-    for (const row of data) {
-      const key = `${row.track_name}__${row.artist_name}`;
-      if (!grouped[key]) {
-        grouped[key] = { track: row.track_name, artist: row.artist_name, sessions: new Set(), brought_by: new Set() };
+      if (!query) {
+        status.textContent = 'Please enter a search term.';
+        return;
       }
-      grouped[key].sessions.add(row.party_name);
-      grouped[key].brought_by.add(row.brought_by);
+
+      status.textContent = 'Searching... ✨';
+      table.style.display = 'none';
+      tbody.innerHTML = '';
+
+      try {
+        // Search by artist or track (case-insensitive, partial match)
+        const { data, error } = await supabase
+          .from('tracks_v3')
+          .select('file_name, person_raw, party_name, artist_guess')
+          .ilike('artist_guess', `%${query}%`)
+          .limit(100);
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+          status.textContent = 'No results found.';
+          return;
+        }
+
+        // Group by track for nicer output
+        const grouped = {};
+        for (const row of data) {
+          const key = row.file_name.toLowerCase();
+          if (!grouped[key]) {
+            grouped[key] = {
+              track: row.file_name,
+              artist: row.artist_guess || 'Unknown',
+              sessions: new Set(),
+              people: new Set()
+            };
+          }
+          grouped[key].sessions.add(row.party_name);
+          grouped[key].people.add(row.person_raw);
+        }
+
+        // Render table
+        for (const key in grouped) {
+          const g = grouped[key];
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${g.track}</td>
+            <td>${g.artist}</td>
+            <td>${Array.from(g.sessions).join('<br>')}</td>
+            <td>${Array.from(g.people).join('<br>')}</td>
+          `;
+          tbody.appendChild(tr);
+        }
+
+        status.textContent = `Found ${data.length} matches.`;
+        table.style.display = 'table';
+
+      } catch (err) {
+        console.error('Search error:', err);
+        status.textContent = 'Error performing search.';
+      }
     }
-
-    const rows = Object.values(grouped);
-    let html = `<table><tr><th>Track</th><th>Artist</th><th>Sessions</th><th>Brought By</th></tr>`;
-    for (const r of rows) {
-      html += `<tr>
-        <td>${r.track}</td>
-        <td>${r.artist}</td>
-        <td>${Array.from(r.sessions).join(', ')}</td>
-        <td>${Array.from(r.brought_by).join(', ')}</td>
-      </tr>`;
-    }
-    html += '</table>';
-    document.getElementById('results').innerHTML = html;
-  }
-
-  document.getElementById('searchBtn').addEventListener('click', () => {
-    const q = document.getElementById('searchInput').value.trim();
-    searchTracks(q);
-  });
-
-  document.getElementById('searchInput').addEventListener('keypress', e => {
-    if (e.key === 'Enter') document.getElementById('searchBtn').click();
-  });
   </script>
+
 </body>
 </html>
-
-
-
