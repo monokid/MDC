@@ -3,111 +3,134 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>The MasterDank Collections — Session Explorer</title>
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <title>The MasterDank Collections — Search</title>
   <style>
     body {
       margin: 0;
       font-family: 'Segoe UI', sans-serif;
       background: radial-gradient(circle at top left, #2a0845, #6441A5);
-      color: #e6e6ff;
+      color: #eee;
       height: 100vh;
       overflow: hidden;
     }
     header {
       display: flex;
       align-items: center;
+      gap: 10px;
       padding: 15px;
-      font-size: 1.2rem;
+      font-size: 1.1rem;
       background: rgba(10,10,20,0.5);
       box-shadow: 0 2px 10px rgba(0,0,0,0.4);
     }
-    select, input, button {
+    input, button {
       background: #11142b;
       border: 1px solid #444;
       color: #fff;
       border-radius: 6px;
-      margin-left: 10px;
-      padding: 5px 10px;
+      padding: 6px 10px;
+      font-size: 1rem;
     }
     button:hover { background: #22274b; cursor: pointer; }
-    #content {
-      height: calc(100vh - 70px);
+    #results {
       padding: 20px;
-    }
-    #dataView {
-      background: rgba(10,10,30,0.8);
-      border-radius: 12px;
-      padding: 10px;
-      height: 100%;
+      height: calc(100vh - 70px);
       overflow-y: auto;
+      background: rgba(5,5,15,0.6);
     }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    th, td {
+      padding: 6px 10px;
+      border-bottom: 1px solid #333;
+    }
+    th {
+      text-align: left;
+      color: #9ff;
+    }
+    tr:hover { background: rgba(255,255,255,0.05); }
   </style>
 </head>
 <body>
   <header>
-    <div><b style="color:#a8b8ff;">The MasterDank Collections</b> — <span style="color:#99f2c8;">Session Explorer</span></div>
-    <select id="viewSelect">
-      <option value="view_top_artists">view_top_artists</option>
-      <option value="view_recurring_tracks">view_recurring_tracks</option>
-      <option value="tracks_v2">tracks_v2</option>
-    </select>
-    <input type="text" id="filterInput" placeholder="filter table (client-side)">
-    <button id="refreshBtn">Refresh</button>
-    <span id="rowCount">0 rows</span>
+    <div><b style="color:#a8b8ff;">The MasterDank Collections</b> — <span style="color:#99f2c8;">Track Search</span></div>
+    <input id="searchInput" type="text" placeholder="Search artist or track..." style="flex:1;">
+    <button id="searchBtn">Search</button>
+    <span id="status"></span>
   </header>
-  <div id="content">
-    <div id="dataView"></div>
-  </div>
+  <div id="results"></div>
 
   <script>
   const SUPABASE_URL = "https://ilvfgrahrejymvnyrrxa.supabase.co";
-  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlsdmZncmFocmVqeW12bnlycnhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA1ODY4MzgsImV4cCI6MjA3NjE2MjgzOH0.BF9-ohNBCXhJUBvC0t6rtI8V9LcmL7PbfSKt_M4Mu0s";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlsdmZncmFocmVqeW12bnlycnhhIiwicm9zZSI6ImFub24iLCJpYXQiOjE3NjA1ODY4MzgsImV4cCI6MjA3NjE2MjgzOH0.BF9-ohNBCXhJUBvC0t6rtI8V9LcmL7PbfSKt_M4Mu0s";
 
-  async function fetchViewData(viewName) {
+  async function searchTracks(query) {
+    if (!query) return;
+    document.getElementById('status').textContent = 'Searching...';
+    document.getElementById('results').innerHTML = '';
+
+    const filter = encodeURIComponent(`or(track_name.ilike.%25${query}%25,artist_name.ilike.%25${query}%25)`);
+    const url = `${SUPABASE_URL}/rest/v1/view_searchable_tracks?${filter}&select=*`;
+
     try {
-      const url = `${SUPABASE_URL}/rest/v1/${viewName}?select=*`;
       const res = await fetch(url, {
         headers: {
           apikey: SUPABASE_KEY,
           Authorization: `Bearer ${SUPABASE_KEY}`
         }
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      console.log(`✅ ${viewName} → ${data.length} rows`);
-      document.getElementById('rowCount').textContent = `${data.length} rows`;
-      displayTable(data);
+      if (!Array.isArray(data)) throw new Error(JSON.stringify(data));
+
+      document.getElementById('status').textContent = `${data.length} result(s)`;
+      displayResults(data);
     } catch (err) {
-      console.error("❌ Fetch error:", err);
-      document.getElementById('dataView').innerHTML =
-        `<p style="color:#f88;">Error fetching data: ${err.message}</p>`;
+      console.error('Search error:', err);
+      document.getElementById('status').textContent = 'Error';
     }
   }
 
-  function displayTable(data) {
-    const container = document.getElementById('dataView');
-    if (!data || data.length === 0) {
-      container.innerHTML = "<p>No rows found.</p>";
+  function displayResults(data) {
+    if (data.length === 0) {
+      document.getElementById('results').innerHTML = '<p>No results found.</p>';
       return;
     }
-    const keys = Object.keys(data[0]);
-    let html = "<table border='0' cellspacing='0' cellpadding='4' style='width:100%;font-size:0.9rem;'>";
-    html += "<tr style='color:#a0f1ff;'>" + keys.map(k => `<th align='left'>${k}</th>`).join('') + "</tr>";
+
+    // Group by (track, artist)
+    const grouped = {};
     for (const row of data) {
-      html += "<tr>" + keys.map(k => `<td>${row[k] ?? ''}</td>`).join('') + "</tr>";
+      const key = `${row.track_name}__${row.artist_name}`;
+      if (!grouped[key]) {
+        grouped[key] = { track: row.track_name, artist: row.artist_name, sessions: new Set(), brought_by: new Set() };
+      }
+      grouped[key].sessions.add(row.party_name);
+      grouped[key].brought_by.add(row.brought_by);
     }
-    html += "</table>";
-    container.innerHTML = html;
+
+    const rows = Object.values(grouped);
+    let html = `<table><tr><th>Track</th><th>Artist</th><th>Sessions</th><th>Brought By</th></tr>`;
+    for (const r of rows) {
+      html += `<tr>
+        <td>${r.track}</td>
+        <td>${r.artist}</td>
+        <td>${Array.from(r.sessions).join(', ')}</td>
+        <td>${Array.from(r.brought_by).join(', ')}</td>
+      </tr>`;
+    }
+    html += '</table>';
+    document.getElementById('results').innerHTML = html;
   }
 
-  document.getElementById('refreshBtn').addEventListener('click', () => {
-    const view = document.getElementById('viewSelect').value;
-    fetchViewData(view);
+  document.getElementById('searchBtn').addEventListener('click', () => {
+    const q = document.getElementById('searchInput').value.trim();
+    searchTracks(q);
   });
 
-  // Auto-load first view
-  fetchViewData(document.getElementById('viewSelect').value);
+  document.getElementById('searchInput').addEventListener('keypress', e => {
+    if (e.key === 'Enter') document.getElementById('searchBtn').click();
+  });
   </script>
 </body>
 </html>
