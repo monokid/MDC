@@ -28,7 +28,7 @@
       text-shadow: 0 0 8px #0ff;
     }
     .container {
-      max-width: 900px;
+      max-width: 1000px;
       margin: 2rem auto;
       padding: 1rem;
       background: rgba(0, 0, 0, 0.4);
@@ -91,7 +91,16 @@
       <input type="text" id="query" placeholder="Search by track or artist..." size="40">
       <select id="personFilter"><option value="">All bringers</option></select>
       <select id="partyFilter"><option value="">All sessions</option></select>
+      <select id="sortBy">
+        <option value="file_name.asc">Sort: Name ↑</option>
+        <option value="file_name.desc">Sort: Name ↓</option>
+        <option value="artist_norm.asc">Sort: Artist ↑</option>
+        <option value="artist_norm.desc">Sort: Artist ↓</option>
+        <option value="party_name.asc">Sort: Session ↑</option>
+        <option value="party_name.desc">Sort: Session ↓</option>
+      </select>
       <button onclick="searchTracks()">Search</button>
+      <button onclick="exportCSV()">Export CSV</button>
     </div>
     <div id="status"></div>
 
@@ -116,6 +125,8 @@
     const supabaseUrl = 'https://ilvfgrahrejymvnyrrxa.supabase.co';
     const supabaseKey = 'YOUR_ANON_KEY_HERE'; // replace with anon key
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    let lastResults = [];
 
     async function loadFilters() {
       const { data: persons } = await supabase.from('tracks_v2').select('person_raw').not('person_raw', 'is', null);
@@ -146,6 +157,7 @@
       const query = document.getElementById('query').value.trim();
       const person = document.getElementById('personFilter').value;
       const party = document.getElementById('partyFilter').value;
+      const sortBy = document.getElementById('sortBy').value;
       const status = document.getElementById('status');
       const table = document.getElementById('results');
       const tbody = table.querySelector('tbody');
@@ -164,6 +176,9 @@
         if (party) q = q.eq('party_name', party);
 
         if (filters.length) q = q.or(filters.join(','));
+
+        const [col, dir] = sortBy.split('.');
+        q = q.order(col, { ascending: dir === 'asc' });
         q = q.limit(200);
 
         const { data, error } = await q;
@@ -173,6 +188,8 @@
           status.textContent = 'No results found.';
           return;
         }
+
+        lastResults = data;
 
         const grouped = {};
         for (const row of data) {
@@ -211,8 +228,30 @@
       }
     }
 
+    function exportCSV() {
+      if (!lastResults.length) {
+        alert('No data to export.');
+        return;
+      }
+
+      const header = ['file_name', 'artist_norm', 'title_norm', 'person_raw', 'party_name'];
+      const csvRows = [header.join(';')];
+
+      for (const row of lastResults) {
+        csvRows.push(header.map(h => `"${(row[h] || '').replace(/"/g, '""')}"`).join(';'));
+      }
+
+      const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `MasterDank_Export_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+    }
+
     loadFilters();
     window.searchTracks = searchTracks;
+    window.exportCSV = exportCSV;
   </script>
 </body>
 </html>
