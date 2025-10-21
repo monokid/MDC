@@ -132,10 +132,12 @@
   </div>
   <footer>✨ Powered by Supabase — handcrafted by The MasterDank Crew ✨</footer>
 
-<script>
+<script type="module">
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
   const supabaseUrl = 'https://ilvfgrahrejymvnyrrxa.supabase.co';
-  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlsdmZncmFocmVqeW12bnlycnhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA1ODY4MzgsImV4cCI6MjA3NjE2MjgzOH0.BF9-ohNBCXhJUBvC0t6rtI8V9LcmL7PbfSKt_M4Mu0s'; // Replace with your anon key
-  const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlsdmZncmFocmVqeW12bnlycnhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA1ODY4MzgsImV4cCI6MjA3NjE2MjgzOH0.BF9-ohNBCXhJUBvC0t6rtI8V9LcmL7PbfSKt_M4Mu0s'; // paste your anon key here
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
   async function searchTracks() {
     const query = document.getElementById('query').value.trim();
@@ -201,7 +203,11 @@
       status.textContent = 'Error performing search.';
     }
   }
+
+  window.searchTracks = searchTracks;
 </script>
+
 </body>
 </html>
+
 
