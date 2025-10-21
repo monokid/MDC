@@ -232,14 +232,17 @@
       status.style.color = '#fff';
 
       try {
-        let q = supabase.from('tracks_v2').select('*');
-        const filters = [];
+      let q = supabase.from('tracks_v2').select('*');
 
-        if (query) filters.push(`artist_norm.ilike.%${query}%`, `title_norm.ilike.%${query}%`, `file_name.ilike.%${query}%`);
+        if (query) {
+          q = q.or(
+            `artist_norm.ilike.%${query}%,title_norm.ilike.%${query}%,file_name.ilike.%${query}%`
+          );
+        }
+        
         if (person) q = q.eq('person_raw', person);
         if (party) q = q.eq('party_name', party);
 
-        if (filters.length) q = q.or(filters.join(','));
 
         const [col, dir] = sortBy.split('.');
         q = q.order(col, { ascending: dir === 'asc' });
@@ -334,3 +337,4 @@
   </script>
 </body>
 </html>
+
